@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avelino store</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="page active">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>🏪 Sari-Sari Store</h1>
+                <p>Point of Sale System</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUsername" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="loginPassword" required>
+                        <button type="button" class="show-password-btn" onclick="togglePasswordVisibility()" title="Show/Hide Password">
+                            <svg class="eye-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Login</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminPage" class="page">
+        <nav class="navbar">
+            <div class="nav-brand">🏪 Admin Dashboard</div>
+            <div class="nav-user">
+                <span id="adminUserName"></span>
+                <button onclick="logout()" class="btn btn-sm">Logout</button>
+            </div>
+        </nav>
+        
+        <div class="container">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
+                <button class="tab-btn" onclick="showTab('products')">📦 Products</button>
+                <button class="tab-btn" onclick="showTab('users')">👥 Users</button>
+                <button class="tab-btn" onclick="showTab('debts')">💳 Debts</button>
+                <button class="tab-btn" onclick="showTab('reports')">📈 Reports</button>
+                <button class="tab-btn" onclick="showTab('salesHistory')">🛍️ Sales History</button>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div id="dashboardTab" class="tab-content active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalSales">₱0</div>
+                        <div class="stat-label">Today's Sales</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalTransactions">0</div>
+                        <div class="stat-label">Transactions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="lowStockCount">0</div>
+                        <div class="stat-label">Low Stock Items</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="activeUsers">0</div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>⚠️ Low Stock Alerts</h3>
+                    <div id="lowStockList"></div>
+                </div>
+            </div>
+
+            <!-- Products Tab -->
+            <div id="productsTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📦 Products</h3>
+                        <button onclick="showAddProduct()" class="btn btn-primary">+ Add Product</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="productSearch" placeholder="Search products..." onkeyup="searchProducts()">
+                    </div>
+                    <div class="table-container">
+                        <table id="productsTable">
+                            <thead>
+                                <tr>
+                                    <th>Barcode</th>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="usersTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👥 Users</h3>
+                        <button onclick="showAddUser()" class="btn btn-primary">+ Add User</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="userSearch" placeholder="Search users..." onkeyup="searchUsers()">
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Full Name</th>
+                                    <th>Role</th>
+                                    <th>Outstanding Debt</th>
+                                    <th>Credit Limit</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debts Tab -->
+            <div id="debtsTab" class="tab-content">
+                <div class="card">
+                    <h3>💳 Customer Debts</h3>
+                    <div class="stats-grid" style="margin-bottom: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalDebtAmount">₱0</div>
+                            <div class="stat-label">Total Debt</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalDebtors">0</div>
+                            <div class="stat-label">Customers with Debt</div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Debt Amount</th>
+                                    <th>Credit Limit</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="debtsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="reportsTab" class="tab-content">
+                <div class="card">
+                    <h3>📈 Sales Reports</h3>
+                    <div class="report-controls">
+                        <button onclick="loadReport('daily')" class="btn">Daily Report</button>
+                        <button onclick="loadReport('monthly')" class="btn">Monthly Report</button>
+                    </div>
+                    <div id="reportContent"></div>
+                </div>
+            </div>
+
+            <!-- Sales History Tab -->
+            <div id="salesHistoryTab" class="tab-content">
+                <div class="card">
+                    <h3>🛍️ Sold Products History</h3>
+                    <div class="report-controls">
+                        <button onclick="loadSalesHistory('daily')" class="btn">Daily</button>
+                        <button onclick="loadSalesHistory('weekly')" class="btn">Weekly</button>
+                        <button onclick="loadSalesHistory('monthly')" class="btn">Monthly</button>
+                        <button onclick="loadSalesHistory('all')" class="btn">All Time</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" placeholder="Search by product name or cashier..." onkeyup="searchSalesHistory()">
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Cashier</th>
+                                    <th>Product Name</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Subtotal</th>
+                                    <th>Transaction #</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salesHistoryTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cashier POS Page -->
+    <div id="cashierPage" class="page">
+        <nav class="navbar">
+            <div class="nav-brand">🏪 POS System</div>
+            <div class="nav-user">
+                <span id="cashierUserName"></span>
+                <button onclick="logout()" class="btn btn-sm">Logout</button>
+            </div>
+        </nav>
+
+        <div class="pos-container">
+            <div class="pos-left">
+                <div class="barcode-input-section">
+                    <input type="text" id="barcodeInput" placeholder="Scan or enter barcode..." autofocus>
+                </div>
+
+                <div class="cart-section">
+                    <h3>🛒 Cart</h3>
+                    <div id="cartItems"></div>
+                    <div class="cart-total">
+                        <strong>Total: ₱<span id="cartTotal">0.00</span></strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pos-right">
+                <div class="quick-search">
+                    <input type="text" id="quickSearch" placeholder="Search products...">
+                    <div id="searchResults"></div>
+                </div>
+
+                <div class="checkout-section">
+                    <button onclick="showCheckoutModal()" class="btn btn-success btn-large">💰 Checkout</button>
+                    <button onclick="showAddDebtModal()" class="btn btn-warning btn-large">💳 Add Debt</button>
+                    <button onclick="showPayDebtModal()" class="btn btn-info btn-large">💵 Customer Pays Debt</button>
+                    <button onclick="clearCart()" class="btn btn-danger btn-large">🗑️ Clear Cart</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Page -->
+    <div id="customerPage" class="page">
+        <nav class="navbar">
+            <div class="nav-brand">🏪 Customer Portal</div>
+            <div class="nav-user">
+                <span id="customerUserName"></span>
+                <button onclick="logout()" class="btn btn-sm">Logout</button>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="card">
+                <h2>Account Information</h2>
+                <div class="balance-display">
+                    <div class="balance-label">Your Current Debt</div>
+                    <div class="balance-amount"><span id="customerBalance">No debt</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📜 Purchase History</h3>
+                <div id="customerHistory"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <h3 id="productModalTitle">Add Product</h3>
+            <form id="productForm">
+                <input type="hidden" id="productId">
+                <div class="form-group">
+                    <label>Barcode *</label>
+                    <input type="text" id="productBarcode" required>
+                </div>
+                <div class="form-group">
+                    <label>Product Name *</label>
+                    <input type="text" id="productName" required>
+                </div>
+                <div class="form-group">
+                    <label>Category *</label>
+                    <input type="text" id="productCategory" required>
+                </div>
+                <div class="form-group">
+                    <label>Price *</label>
+                    <input type="number" id="productPrice" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Stock *</label>
+                    <input type="number" id="productStock" required>
+                </div>
+                <div class="form-group">
+                    <label>Low Stock Threshold</label>
+                    <input type="number" id="productThreshold" value="10">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" onclick="closeModal('productModal')" class="btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <h3 id="userModalTitle">Add User</h3>
+            <form id="userForm">
+                <input type="hidden" id="userId">
+                <div class="form-group">
+                    <label>Username *</label>
+                    <input type="text" id="userUsername" required>
+                </div>
+                <div class="form-group">
+                    <label>Password *</label>
+                    <input type="password" id="userPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" id="userFullName" required>
+                </div>
+                <div class="form-group">
+                    <label>Role *</label>
+                    <select id="userRole" required onchange="toggleCustomerFields()">
+                        <option value="CASHIER">Cashier</option>
+                        <option value="CUSTOMER">Customer</option>
+                    </select>
+                </div>
+                <div class="form-group" id="creditLimitGroup" style="display: none;">
+                    <label>Credit Limit (Max Debt Allowed)</label>
+                    <input type="number" id="userCreditLimit" value="1000" step="0.01">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" onclick="closeModal('userModal')" class="btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="checkoutModal" class="modal">
+        <div class="modal-content">
+            <h3>💰 Checkout</h3>
+            <div class="checkout-summary">
+                <div class="checkout-row">
+                    <span>Total Amount:</span>
+                    <strong>₱<span id="checkoutTotal">0.00</span></strong>
+                </div>
+            </div>
+            <form id="checkoutForm">
+                <div class="form-group">
+                    <label>Customer (Optional - for debt tracking)</label>
+                    <select id="checkoutCustomer">
+                        <option value="">Walk-in Customer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select id="paymentMethod" onchange="handlePaymentMethodChange()">
+                        <option value="CASH">Cash</option>
+                        <option value="DEBT">Full Debt (Utang)</option>
+                        <option value="PARTIAL">Partial Payment</option>
+                    </select>
+                </div>
+                <div class="form-group" id="amountPaidGroup">
+                    <label>Amount Paid *</label>
+                    <input type="number" id="amountPaid" step="0.01" required>
+                </div>
+                <div id="customerDebtInfo" style="display: none; padding: 15px; background: #fff3cd; border-radius: 8px; margin: 15px 0;">
+                    <div style="font-weight: 600; margin-bottom: 5px;">Customer Debt Info:</div>
+                    <div>Current Balance: ₱<span id="customerCurrentBalance">0.00</span></div>
+                    <div>Credit Limit: ₱<span id="customerCreditLimit">0.00</span></div>
+                    <div style="color: #e74c3c; font-weight: 600;">New Debt: ₱<span id="customerNewDebt">0.00</span></div>
+                </div>
+                <div class="checkout-row" id="changeRow" style="display: none;">
+                    <span>Change:</span>
+                    <strong>₱<span id="changeAmount">0.00</span></strong>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-success">Complete Sale</button>
+                    <button type="button" onclick="closeModal('checkoutModal')" class="btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="restockModal" class="modal">
+        <div class="modal-content">
+            <h3>📦 Restock Product</h3>
+            <div id="restockProductInfo" style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;"></div>
+            <form id="restockForm">
+                <input type="hidden" id="restockProductId">
+                <div class="form-group">
+                    <label>Quantity to Add *</label>
+                    <input type="number" id="restockQuantity" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Cost per Unit *</label>
+                    <input type="number" id="restockCost" step="0.01" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>Supplier</label>
+                    <input type="text" id="restockSupplier" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="restockNotes" rows="3" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px;"></textarea>
+                </div>
+                <div style="padding: 15px; background: #e8f5e9; border-radius: 8px; margin: 15px 0;">
+                    <strong>Total Cost: ₱<span id="restockTotalCost">0.00</span></strong>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Restock</button>
+                    <button type="button" onclick="closeModal('restockModal')" class="btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <h3 id="historyModalTitle">History</h3>
+            <div id="historyContent"></div>
+            <div class="modal-actions">
+                <button type="button" onclick="closeModal('historyModal')" class="btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="payDebtModal" class="modal">
+        <div class="modal-content">
+            <h3>💰 Pay Debt</h3>
+            <div id="payDebtCustomerSelectGroup" class="form-group">
+                <label>Customer *</label>
+                <select id="payDebtCustomer" required onchange="updatePayDebtCustomerInfo()">
+                    <option value="">Select customer</option>
+                </select>
+            </div>
+            <div id="payDebtCustomerInfo" style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;"></div>
+            <form id="payDebtForm">
+                <input type="hidden" id="payDebtCustomerId">
+                <div class="form-group">
+                    <label>Payment Amount *</label>
+                    <input type="number" id="payDebtAmount" step="0.01" required min="0.01">
+                </div>
+                <div style="padding: 15px; background: #e8f5e9; border-radius: 8px; margin: 15px 0;">
+                    <div>Remaining Debt: ₱<span id="remainingDebt">0.00</span></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-success">Record Payment</button>
+                    <button type="button" onclick="closeModal('payDebtModal')" class="btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="addDebtModal" class="modal">
+        <div class="modal-content">
+            <h3>💳 Add Debt / Adjust Balance</h3>
+            <div id="addDebtCustomerInfo" style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;"></div>
+            <form id="addDebtForm">
+                <div class="form-group">
+                    <label>Customer *</label>
+                    <select id="addDebtCustomer" required>
+                        <option value="">Select customer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Debt Amount (how much to add to customer's debt) *</label>
+                    <input type="number" id="addDebtAmount" step="0.01" required min="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Note (optional)</label>
+                    <input type="text" id="addDebtNote" placeholder="e.g., goods sold on credit">
+                </div>
+                <div style="padding: 15px; background: #ffecec; border-radius: 8px; margin: 15px 0;">
+                    <div>This will increase the customer's debt and create an audit transaction.</div>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-warning">Add Debt</button>
+                    <button type="button" onclick="closeModal('addDebtModal')" class="btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+</body>
+</html>
