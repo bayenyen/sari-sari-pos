@@ -211,6 +211,7 @@ body {
 
 .btn-block { width: 100%; }
 .btn-large { width: 100%; padding: 18px; font-size: 18px; }
+.btn-compact { flex: 1; padding: 12px 8px; font-size: 13px; white-space: nowrap; }
 .btn-sm { padding: 8px 14px; font-size: 13px; }
 
 /* Simple ripple effect */
@@ -713,35 +714,46 @@ input:focus, select:focus, textarea:focus {
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     pointer-events: none;
+    max-width: 90%;
 }
 
 .notification {
     padding: 16px 24px;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     font-weight: 500;
-    animation: slideInRight 0.3s ease-out;
+    font-size: 15px;
+    animation: slideInTop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: auto;
-    max-width: 400px;
+    max-width: 450px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    line-height: 1.4;
+    letter-spacing: 0.3px;
+}
+
+.notification span:first-child {
+    font-size: 20px;
+    flex-shrink: 0;
 }
 
 .notification.success {
-    background: linear-gradient(135deg, #27ae60 0%, #1f9b4a 100%);
+    background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
     color: white;
 }
 
 .notification.error {
-    background: linear-gradient(135deg, #e74c3c 0%, #c23125 100%);
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
     color: white;
 }
 
 .notification.info {
-    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    background: linear-gradient(135deg, #3498db 0%, #2874a6 100%);
     color: white;
 }
 
@@ -750,9 +762,9 @@ input:focus, select:focus, textarea:focus {
     color: white;
 }
 
-@keyframes slideInRight {
+@keyframes slideInTop {
     from {
-        transform: translateX(-50%) translateY(-100px);
+        transform: translateX(-50%) translateY(-120px);
         opacity: 0;
     }
     to {
@@ -761,17 +773,32 @@ input:focus, select:focus, textarea:focus {
     }
 }
 
-@keyframes slideOutRight {
+@keyframes slideOutTop {
     from {
         transform: translateX(-50%) translateY(0);
         opacity: 1;
     }
     to {
-        transform: translateX(-50%) translateY(-100px);
+        transform: translateX(-50%) translateY(-120px);
         opacity: 0;
     }
 }
 
 .notification.hide {
-    animation: slideOutRight 0.3s ease-out forwards;
+    animation: slideOutTop 0.3s ease-out forwards;
+}
+
+/* Checkout section with compressed buttons */
+.checkout-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: var(--radius);
+}
+
+/* Make refresh button span full width */
+.checkout-section .btn:last-child {
+    grid-column: 1 / -1;
 }

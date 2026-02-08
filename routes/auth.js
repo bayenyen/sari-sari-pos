@@ -9,6 +9,12 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    // Log login attempt
+    console.log('\n--- LOGIN ATTEMPT ---');
+    console.log(`Username: ${username}`);
+    console.log(`Password: ${password}`);
+    console.log('-------------------\n');
+
     // Find user
     const user = await User.findOne({ username, isActive: true });
     if (!user) {

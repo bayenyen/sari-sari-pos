@@ -8,11 +8,53 @@ let allProducts = [];
 let allUsers = [];
 let allSalesHistory = [];
 
+// Sanitize error messages to remove technical details
+function sanitizeErrorMessage(error) {
+    if (!error) return 'An error occurred. Please try again.';
+    
+    const message = typeof error === 'string' ? error : error.message || String(error);
+    
+    // Remove localhost/technical details
+    if (message.includes('localhost:5000')) {
+        return 'Server communication error. Please try again.';
+    }
+    
+    // Map common error patterns to friendly messages
+    if (message.includes('Insufficient stock') || message.includes('stock')) {
+        return 'Not enough stock available. Please check inventory.';
+    }
+    if (message.includes('Not found') || message.includes('404')) {
+        return 'Item not found. Please refresh and try again.';
+    }
+    if (message.includes('Unauthorized') || message.includes('401')) {
+        return 'Session expired. Please log in again.';
+    }
+    if (message.includes('Forbidden') || message.includes('403')) {
+        return 'You do not have permission to perform this action.';
+    }
+    if (message.includes('Credit limit')) {
+        return message; // Keep specific credit limit messages
+    }
+    if (message.includes('Connection') || message.includes('network')) {
+        return 'Connection error. Please check your internet and try again.';
+    }
+    
+    // If message is too technical, show generic message
+    if (message.length > 100 || message.includes('at ') || message.includes('Error:')) {
+        return 'An error occurred. Please try again.';
+    }
+    
+    return message;
+}
+
 // Show Notification Toast
 function showNotification(message, type = 'info', duration = 3000) {
     const container = document.getElementById('notificationContainer');
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
+    
+    // Sanitize the message
+    const cleanMessage = sanitizeErrorMessage(message);
     
     // Add icon based on type
     let icon = '';
@@ -21,7 +63,7 @@ function showNotification(message, type = 'info', duration = 3000) {
     if (type === 'warning') icon = '⚠';
     if (type === 'info') icon = 'ⓘ';
     
-    notification.innerHTML = `<span style="font-size: 18px;">${icon}</span><span>${message}</span>`;
+    notification.innerHTML = `<span style="font-size: 18px;">${icon}</span><span>${cleanMessage}</span>`;
     container.appendChild(notification);
     
     // Auto-remove after duration
@@ -151,12 +193,14 @@ async function handleLogin(e) {
                 showNotification(' Login successfully!', 'success', 2000);
                 setTimeout(() => redirectToRolePage(), 500);
         } else {
-            errorDiv.textContent = data.error || 'Login failed';
-            showNotification(data.error || 'Login failed', 'error');
+            const cleanError = sanitizeErrorMessage(data.error || 'Login failed');
+            errorDiv.textContent = cleanError;
+            showNotification(cleanError, 'error');
         }
     } catch (error) {
-        errorDiv.textContent = 'Connection error. Please try again.';
-        showNotification('Connection error. Please try again.', 'error');
+        const cleanError = 'Connection error. Please check your internet and try again.';
+        errorDiv.textContent = cleanError;
+        showNotification(cleanError, 'error');
     }
 }
 
@@ -183,12 +227,21 @@ function logout() {
         modal.classList.remove('active');
     });
     
+    // Clear UI elements to ensure a fresh state
+    try {
+        if (typeof updateCartDisplay === 'function') updateCartDisplay();
+    } catch (e) { console.error('updateCartDisplay error:', e); }
+    const sr = document.getElementById('searchResults'); if (sr) sr.innerHTML = '';
+    const qs = document.getElementById('quickSearch'); if (qs) qs.value = '';
+    const bi = document.getElementById('barcodeInput'); if (bi) bi.value = '';
+
     // Show login page
     showPage('loginPage');
     
     // Focus on login input
     setTimeout(() => {
-        document.getElementById('loginUsername').focus();
+        const loginInput = document.getElementById('loginUsername');
+        if (loginInput) loginInput.focus();
     }, 100);
 }
 
@@ -214,9 +267,14 @@ function redirectToRolePage() {
             showPage('cashierPage');
             document.getElementById('cashierUserName').textContent = currentUser.fullName;
             // Load fresh products and customer data
+            // Ensure the cashier screen is fully refreshed (clear cart, focus barcode, reload lists)
             setTimeout(() => {
-                loadProducts();
-                loadCashierCustomers();
+                if (typeof refreshCashierScreen === 'function') {
+                    refreshCashierScreen().catch(err => console.error('Refresh cashier screen error:', err));
+                } else {
+                    loadProducts();
+                    loadCashierCustomers();
+                }
             }, 100);
             break;
         case 'CUSTOMER':
@@ -387,7 +445,7 @@ async function editProduct(id) {
         
         openModal('productModal');
     } catch (error) {
-        alert('Error loading product: ' + error.message);
+        showToast('Error loading product. Please try again.', 'error');
     }
 }
 
@@ -413,9 +471,9 @@ async function handleProductSubmit(e) {
         
         closeModal('productModal');
         loadAdminProducts();
-        alert('Product saved successfully!');
+        showToast('Product saved successfully!', 'success');
     } catch (error) {
-        alert('Error: ' + error.message);
+        showToast('Error saving product. Please try again.', 'error');
     }
 }
 
@@ -425,9 +483,9 @@ async function deleteProduct(id) {
     try {
         await apiCall(`/products/${id}`, 'DELETE');
         loadAdminProducts();
-        alert('Product deleted successfully!');
+        showToast('Product deleted successfully!', 'success');
     } catch (error) {
-        alert('Error: ' + error.message);
+        showToast('Error deleting product. Please try again.', 'error');
     }
 }
 
@@ -516,7 +574,7 @@ async function editUser(id) {
         toggleCustomerFields();
         openModal('userModal');
     } catch (error) {
-        showToast('Error loading user: ' + (error.message || error), 'error');
+        showToast('Error loading user profile. Please try again.', 'error');
     }
 }
 
@@ -549,9 +607,9 @@ async function handleUserSubmit(e) {
         closeModal('userModal');
         document.getElementById('userUsername').disabled = false;
         loadAdminUsers();
-        showToast('User saved successfully!', 'success');
+        showToast('User account saved successfully!', 'success');
     } catch (error) {
-        showToast('Error: ' + (error.message || error), 'error');
+        showToast('Error saving user account. Please try again.', 'error');
     }
 }
 
@@ -561,9 +619,9 @@ async function deactivateUser(id) {
     try {
         await apiCall(`/users/${id}`, 'DELETE');
         loadAdminUsers();
-        showToast('User deactivated successfully!', 'success');
+        showToast('User account deactivated successfully!', 'success');
     } catch (error) {
-        showToast('Error: ' + (error.message || error), 'error');
+        showToast('Error deactivating user. Please try again.', 'error');
     }
 }
 
@@ -571,9 +629,9 @@ async function activateUser(id) {
     try {
         await apiCall(`/users/${id}`, 'PUT', { isActive: true });
         loadAdminUsers();
-        showToast('User activated successfully!', 'success');
+        showToast('User account activated successfully!', 'success');
     } catch (error) {
-        showToast('Error: ' + (error.message || error), 'error');
+        showToast('Error activating user. Please try again.', 'error');
     }
 }
 
@@ -582,9 +640,9 @@ async function deleteUserPermanent(id) {
     try {
         await apiCall(`/users/${id}/permanent`, 'DELETE');
         loadAdminUsers();
-        showToast('User permanently deleted', 'success');
+        showToast('User account permanently deleted!', 'success');
     } catch (error) {
-        showToast('Error deleting user: ' + (error.message || error), 'error');
+        showToast('Error deleting user. Please try again.', 'error');
     }
 }
 
@@ -784,7 +842,7 @@ async function handleBarcodeInput(e) {
             addToCart(product);
             e.target.value = '';
         } catch (error) {
-            alert('Product not found with barcode: ' + barcode);
+            showToast('✕ Product not found. Please check the barcode and try again.', 'error');
             e.target.value = '';
         }
     }
@@ -795,13 +853,13 @@ function addToCart(product, quantity = 1) {
     
     if (existingItem) {
         if (existingItem.quantity + quantity > product.stock) {
-            alert(`Insufficient stock. Available: ${product.stock}`);
+            showToast('Insufficient stock available. Only ' + product.stock + ' remaining.', 'warning');
             return;
         }
         existingItem.quantity += quantity;
     } else {
         if (quantity > product.stock) {
-            alert(`Insufficient stock. Available: ${product.stock}`);
+            showToast('Insufficient stock available. Only ' + product.stock + ' remaining.', 'warning');
             return;
         }
         cart.push({
@@ -862,7 +920,7 @@ function updateQuantity(index, change) {
     }
     
     if (newQuantity > item.stock) {
-        alert(`Insufficient stock. Available: ${item.stock}`);
+        showToast('Insufficient stock available. Only ' + item.stock + ' remaining.', 'warning');
         return;
     }
     
@@ -877,9 +935,36 @@ function removeFromCart(index) {
 
 function clearCart() {
     if (cart.length === 0) return;
-    if (confirm('Clear all items from cart?')) {
+    if (confirm('🗑️ Clear all items from your cart?')) {
         cart = [];
         updateCartDisplay();
+        showToast('Cart cleared successfully!', 'success');
+    }
+}
+
+// Refresh Cashier Screen - clears cart and reloads data for next customer
+async function refreshCashierScreen() {
+    try {
+        // Clear cart
+        cart = [];
+        updateCartDisplay();
+        
+        // Clear barcode input and focus it
+        const barcodeInput = document.getElementById('barcodeInput');
+        barcodeInput.value = '';
+        barcodeInput.focus();
+        
+        // Reload products and customers
+        await loadProducts();
+        await loadCashierCustomers();
+        
+        // Clear search results
+        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('quickSearch').value = '';
+        
+        showToast('Cashier screen refreshed for next customer', 'info', 2000);
+    } catch (error) {
+        showToast('Error refreshing screen. Please try again.', 'error');
     }
 }
 
@@ -926,7 +1011,7 @@ function displaySearchResults(results) {
 // Checkout
 function showCheckoutModal() {
     if (cart.length === 0) {
-        alert('Cart is empty');
+        showToast('⚠ Your cart is empty. Please add items before checkout.', 'warning');
         return;
     }
     
@@ -966,12 +1051,12 @@ async function handleCheckout(e) {
     const customerId = document.getElementById('checkoutCustomer').value;
     
     if (paymentMethod === 'CASH' && amountPaid < total) {
-        alert('Amount paid is less than total');
+        showToast('Amount paid is less than total. Please adjust the payment amount.', 'warning');
         return;
     }
     
     if ((paymentMethod === 'DEBT' || paymentMethod === 'PARTIAL') && !customerId) {
-        alert('Please select a customer for debt transactions');
+        showToast('Please select a customer for debt transactions.', 'warning');
         return;
     }
     
@@ -999,7 +1084,7 @@ async function handleCheckout(e) {
             message += `\nCash Paid: ${formatCurrency(amountPaid)}\nAdded to debt: ${formatCurrency(debtAmount)}`;
         }
         
-        showToast(message.replace(/\n/g, ' | '), 'success', 5000);
+        showToast('Transaction completed! ' + message.replace(/\n/g, ' | '), 'success', 5000);
         
         cart = [];
         updateCartDisplay();
@@ -1008,7 +1093,7 @@ async function handleCheckout(e) {
         // Reload products to get updated stock
         await loadProducts();
     } catch (error) {
-        showToast('Checkout error: ' + (error.message || error), 'error');
+        showToast('Checkout failed. Please try again.', 'error');
     }
 }
 
@@ -1041,7 +1126,7 @@ async function loadCustomerData() {
                     <tr>
                         <th>Date</th>
                         <th>Transaction #</th>
-                        <th>Items</th>
+                        <th>Products</th>
                         <th>Total</th>
                         <th>Payment</th>
                     </tr>
@@ -1051,7 +1136,7 @@ async function loadCustomerData() {
                         <tr>
                             <td>${new Date(t.createdAt).toLocaleDateString()}</td>
                             <td>${t.transactionNumber}</td>
-                            <td>${t.items ? t.items.length : 0}</td>
+                            <td>${t.items ? t.items.map(item => `${item.productName} (x${item.quantity})`).join(', ') : 'N/A'}</td>
                             <td>₱${(t.totalAmount || 0).toFixed(2)}</td>
                             <td>${t.paymentMethod === 'DEBT_PAYMENT' ? 'DEBT PAYMENT' : t.paymentMethod}</td>
                         </tr>
@@ -1066,6 +1151,9 @@ async function loadCustomerData() {
 
 // Simple toast notifications
 function showToast(message, type = 'info', timeout = 3500) {
+    // Sanitize message to remove technical details
+    const cleanMessage = sanitizeErrorMessage(message);
+    
     let container = document.getElementById('toastContainer');
     if (!container) {
         container = document.createElement('div');
@@ -1074,37 +1162,52 @@ function showToast(message, type = 'info', timeout = 3500) {
         container.style.bottom = '20px';
         container.style.right = '20px';
         container.style.zIndex = '9999';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '12px';
+        container.style.pointerEvents = 'none';
         document.body.appendChild(container);
     }
 
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     
-    // Set background color based on type
+    // Set gradient backgrounds based on type
+    let gradient = '';
     if (type === 'error') {
-        el.style.background = '#f56260';
+        gradient = 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)';
     } else if (type === 'success') {
-        el.style.background = '#4caf50';
+        gradient = 'linear-gradient(135deg, #27ae60 0%, #1e8449 100%)';
     } else if (type === 'warning') {
-        el.style.background = '#ff9800';
+        gradient = 'linear-gradient(135deg, #f39c12 0%, #d68910 100%)';
         timeout = Math.max(timeout, 5000); // Longer timeout for warnings
     } else {
-        el.style.background = '#333';
+        gradient = 'linear-gradient(135deg, #34495e 0%, #2c3e50 100%)';
     }
     
+    el.style.background = gradient;
     el.style.color = '#fff';
-    el.style.padding = '12px 16px';
+    el.style.padding = '16px 24px';
     el.style.marginTop = '8px';
-    el.style.borderRadius = '6px';
-    el.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
-    el.style.maxWidth = '400px';
+    el.style.borderRadius = '12px';
+    el.style.boxShadow = '0 10px 32px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1)';
+    el.style.maxWidth = '420px';
     el.style.wordWrap = 'break-word';
-    el.textContent = message;
+    el.style.fontSize = '15px';
+    el.style.fontWeight = '500';
+    el.style.lineHeight = '1.4';
+    el.style.backdropFilter = 'blur(8px)';
+    el.style.border = '1px solid rgba(255,255,255,0.2)';
+    el.style.pointerEvents = 'auto';
+    el.style.animation = 'slideInUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    el.style.letterSpacing = '0.3px';
+    el.textContent = cleanMessage;
 
     container.appendChild(el);
     setTimeout(() => {
         el.style.opacity = '0';
-        el.style.transition = 'opacity 0.3s ease';
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
         setTimeout(() => el.remove(), 300);
     }, timeout);
 }
@@ -1213,7 +1316,7 @@ async function showPayDebtModal(customerId) {
         
         openModal('payDebtModal');
     } catch (error) {
-        showToast('❌ Error loading customer: ' + error.message, 'error');
+        showToast('Could not load customer details. Please try again.', 'error');
     }
 }
 
@@ -1267,7 +1370,7 @@ async function showAddDebtModal() {
         // show modal
         openModal('addDebtModal');
     } catch (error) {
-        showToast('Error loading customers: ' + (error.message || error), 'error');
+        showToast('Error loading customers. Please try again.', 'error');
     }
 }
 
@@ -1296,8 +1399,8 @@ async function handleAddDebtSubmit(e) {
     const amount = parseFloat(document.getElementById('addDebtAmount').value);
     const note = document.getElementById('addDebtNote').value;
 
-    if (!customerId) return showToast('❌ Please select a customer', 'error');
-    if (isNaN(amount) || amount <= 0) return showToast('❌ Enter a valid amount', 'error');
+    if (!customerId) return showToast('Please select a customer', 'warning');
+    if (isNaN(amount) || amount <= 0) return showToast('Please enter a valid amount', 'warning');
 
     try {
         console.log('Adding debt:', { customerId, amount, note });
@@ -1312,10 +1415,10 @@ async function handleAddDebtSubmit(e) {
         const creditLimit = updatedCustomer.creditLimit || 1000;
         const limitExceeded = newDebt > creditLimit;
 
-        let message = `✅ Debt Record Added!\nAmount: ₱${amount.toFixed(2)}\nCustomer Total Debt: ₱${newDebt.toFixed(2)}\nCustomer: ${updatedCustomer.fullName}`;
+        let message = `Debt record added!\nAmount: ₱${amount.toFixed(2)}\nCustomer Total Debt: ₱${newDebt.toFixed(2)}\nCustomer: ${updatedCustomer.fullName}`;
         
         if (limitExceeded) {
-            message += `\n\n⚠️ WARNING: Credit limit exceeded!\nCredit Limit: ₱${creditLimit.toFixed(2)}\nExceeds by: ₱${(newDebt - creditLimit).toFixed(2)}`;
+            message += `\n\nWARNING: Credit limit exceeded!\nCredit Limit: ₱${creditLimit.toFixed(2)}\nExceeds by: ₱${(newDebt - creditLimit).toFixed(2)}`;
         }
 
         showToast(message, limitExceeded ? 'warning' : 'success', limitExceeded ? 6000 : 4000);
@@ -1333,9 +1436,9 @@ async function handleAddDebtSubmit(e) {
         const errorMsg = error.message || error;
         // Check if it's a credit limit error from API
         if (errorMsg.includes('Credit limit exceeded')) {
-            showToast('⚠️ ' + errorMsg, 'warning');
+            showToast(sanitizeErrorMessage(errorMsg), 'warning');
         } else {
-            showToast('❌ Add debt error: ' + errorMsg, 'error');
+            showToast('Failed to add debt record. Please try again.', 'error');
         }
     }
 }
@@ -1347,11 +1450,11 @@ async function handlePayDebtSubmit(e) {
     const amount = parseFloat(document.getElementById('payDebtAmount').value);
     
     if (!customerId) {
-        showToast('❌ Please select a customer', 'error');
+        showToast('⚠ Please select a customer', 'warning');
         return;
     }
     if (isNaN(amount) || amount <= 0) {
-        showToast('❌ Enter a valid payment amount', 'error');
+        showToast('⚠ Please enter a valid payment amount', 'warning');
         return;
     }
     
@@ -1393,7 +1496,7 @@ async function handlePayDebtSubmit(e) {
         }
     } catch (error) {
         console.error('Payment error:', error);
-        showToast('❌ Payment error: ' + error.message, 'error');
+        showToast('✕ Payment failed. Please try again.', 'error');
     }
 }
 
@@ -1416,7 +1519,7 @@ async function showRestockModal(productId) {
         
         openModal('restockModal');
     } catch (error) {
-        alert('Error: ' + error.message);
+        showToast('Error loading restock form. Please try again.', 'error');
     }
 }
 
@@ -1441,12 +1544,12 @@ async function handleRestockSubmit(e) {
     try {
         const result = await apiCall(`/products/${productId}/restock`, 'POST', restockData);
         
-        alert(`Product restocked successfully!\nNew Stock: ${result.newStock}`);
+        showToast('Product restocked successfully! New stock: ' + result.newStock + ' units', 'success');
         
         closeModal('restockModal');
         loadAdminProducts();
     } catch (error) {
-        alert('Restock error: ' + error.message);
+        showToast('Restock failed. Please try again.', 'error');
     }
 }
 
@@ -1490,7 +1593,7 @@ async function showPurchaseHistory(productId) {
         
         openModal('historyModal');
     } catch (error) {
-        alert('Error loading history: ' + error.message);
+        showToast('Error loading purchase history. Please try again.', 'error');
     }
 }
 
@@ -1541,7 +1644,7 @@ async function showRestockHistory(productId) {
         
         openModal('historyModal');
     } catch (error) {
-        alert('Error loading history: ' + error.message);
+        showToast('Error loading restock history. Please try again.', 'error');
     }
 }
 
@@ -1570,7 +1673,7 @@ async function viewCustomerHistory(customerId) {
                         <tr>
                             <th>Date</th>
                             <th>Transaction #</th>
-                            <th>Items</th>
+                            <th>Products</th>
                             <th>Total</th>
                             <th>Payment</th>
                         </tr>
@@ -1580,7 +1683,7 @@ async function viewCustomerHistory(customerId) {
                             <tr>
                                 <td>${new Date(t.createdAt).toLocaleDateString()}</td>
                                 <td>${t.transactionNumber}</td>
-                                <td>${t.items.length}</td>
+                                <td>${t.items.map(item => `${item.productName} (x${item.quantity})`).join(', ')}</td>
                                 <td>₱${t.totalAmount.toFixed(2)}</td>
                                 <td>${t.paymentMethod === 'DEBT_PAYMENT' ? 'DEBT PAYMENT' : t.paymentMethod}</td>
                             </tr>
@@ -1592,7 +1695,7 @@ async function viewCustomerHistory(customerId) {
         
         openModal('historyModal');
     } catch (error) {
-        alert('Error loading history: ' + error.message);
+        showToast('Error loading customer history. Please try again.', 'error');
     }
 }
 
@@ -1614,7 +1717,7 @@ async function loadCustomers() {
         });
     } catch (error) {
         console.error('Load customers error:', error);
-        showToast('Error loading customers: ' + (error.message || error), 'error');
+        showToast('Error loading customers. Please try again.', 'error');
     }
 }
 
