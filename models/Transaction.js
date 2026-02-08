@@ -45,9 +45,9 @@ const transactionSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['CASH', 'DEBT', 'PARTIAL'],
+    enum: ['CASH', 'DEBT', 'PARTIAL', 'DEBT_PAYMENT'],
     default: 'CASH',
-    comment: 'CASH = full payment, DEBT = all on credit, PARTIAL = some cash + rest on credit'
+    comment: 'CASH = full payment, DEBT = all on credit, PARTIAL = some cash + rest on credit, DEBT_PAYMENT = customer paid debt'
   },
   status: {
     type: String,

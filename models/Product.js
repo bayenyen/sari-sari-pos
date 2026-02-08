@@ -76,8 +76,8 @@ const productSchema = new mongoose.Schema({
   }
 });
 
-// Index for faster barcode searches
-productSchema.index({ barcode: 1 });
+// Indexes
+// Keep the `unique: true` on the `barcode` field above; remove the duplicate index declaration.
 productSchema.index({ name: 'text' });
 
 module.exports = mongoose.model('Product', productSchema);

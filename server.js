@@ -14,10 +14,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // MongoDB Connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    // Connect using the connection string only; newer MongoDB driver options
+    // `useNewUrlParser` and `useUnifiedTopology` are no-ops in driver v4+.
+    await mongoose.connect(process.env.MONGODB_URI);
     // Log connected database name (mask credentials)
     try {
       const dbName = mongoose.connection.name || process.env.MONGODB_URI;

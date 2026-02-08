@@ -301,13 +301,54 @@ router.post('/pay-debt', authMiddleware, async (req, res) => {
     customer.updatedAt = Date.now();
     await customer.save();
 
-    res.json({
-      message: 'Payment recorded successfully',
-      previousBalance: customer.balance - amount,
-      amountPaid: amount,
-      newBalance: customer.balance,
-      remainingDebt: customer.balance < 0 ? Math.abs(customer.balance) : 0
-    });
+    // Record a transaction for this payment so it appears in history/audit
+    try {
+      const actor = await User.findById(req.userId);
+      
+      // Generate transaction number
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      const todayCount = await Transaction.countDocuments({ createdAt: { $gte: startOfDay, $lt: endOfDay } });
+      const transactionNumber = `TXN${dateStr}${String(todayCount + 1).padStart(4, '0')}`;
+      
+      console.log('Creating payment transaction for customer:', customer._id, 'amount:', amount);
+      const transaction = await Transaction.create({
+        transactionNumber,
+        cashierId: req.userId,
+        cashierName: actor ? actor.fullName : 'Unknown',
+        customerId: customer._id,
+        customerName: customer.fullName,
+        items: [],
+        totalAmount: amount,
+        amountPaid: amount,
+        change: 0,
+        paymentMethod: 'DEBT_PAYMENT',
+        status: 'COMPLETED'
+      });
+
+      console.log('✅ Payment transaction created:', transaction._id, 'paymentMethod:', transaction.paymentMethod);
+      return res.json({
+        message: 'Payment recorded successfully',
+        transaction,
+        previousBalance: customer.balance - amount,
+        amountPaid: amount,
+        newBalance: customer.balance,
+        remainingDebt: customer.balance < 0 ? Math.abs(customer.balance) : 0
+      });
+    } catch (txErr) {
+      console.error('❌ Error recording payment transaction:', txErr.message);
+      console.error('Full error:', txErr);
+      // Return success for balance update even if transaction create fails
+      return res.json({
+        message: 'Payment recorded (transaction log failed)',
+        previousBalance: customer.balance - amount,
+        amountPaid: amount,
+        newBalance: customer.balance,
+        remainingDebt: customer.balance < 0 ? Math.abs(customer.balance) : 0
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }

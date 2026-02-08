@@ -115,10 +115,17 @@ async function handleLogin(e) {
         const data = await response.json();
 
         if (response.ok) {
-            localStorage.setItem('token', data.token);
-            currentUser = data.user;
-            errorDiv.textContent = '';
-            redirectToRolePage();
+                localStorage.setItem('token', data.token);
+                // Fetch fresh user data from the server to avoid stale client-side state
+                try {
+                    const freshUser = await apiCall(`/users/${data.user.id}`);
+                    currentUser = freshUser;
+                } catch (err) {
+                    // Fallback: normalize returned user (map `id` -> `_id`) so other code works
+                    currentUser = Object.assign({}, data.user, { _id: data.user.id });
+                }
+                errorDiv.textContent = '';
+                redirectToRolePage();
         } else {
             errorDiv.textContent = data.error || 'Login failed';
         }
@@ -983,25 +990,25 @@ async function handleCheckout(e) {
 async function loadCustomerData() {
     try {
         // Update debt information
-        const user = await apiCall(`/users/${currentUser._id}`);
+        // Fetch fresh customer + their transactions using dedicated endpoint
+        const data = await apiCall(`/transactions/customer/${currentUser._id}/history`);
+
+        const user = data.customer;
+        const transactions = data.transactions || [];
+
         const debt = Math.abs(user.balance);
-        
-        // Display debt in customer balance info
         let balanceDisplay = 'No debt';
         if (user.balance < 0) {
             balanceDisplay = `₱${debt.toFixed(2)} owed`;
         }
         document.getElementById('customerBalance').textContent = balanceDisplay;
-        
-        // Load purchase history
-        const transactions = await apiCall(`/transactions`);
+
         const customerHistory = document.getElementById('customerHistory');
-        
         if (transactions.length === 0) {
             customerHistory.innerHTML = '<p class="empty-state">No purchase history</p>';
             return;
         }
-        
+
         customerHistory.innerHTML = `
             <table>
                 <thead>
@@ -1010,6 +1017,7 @@ async function loadCustomerData() {
                         <th>Transaction #</th>
                         <th>Items</th>
                         <th>Total</th>
+                        <th>Payment</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1017,8 +1025,9 @@ async function loadCustomerData() {
                         <tr>
                             <td>${new Date(t.createdAt).toLocaleDateString()}</td>
                             <td>${t.transactionNumber}</td>
-                            <td>${t.items.length}</td>
-                            <td>₱${t.totalAmount.toFixed(2)}</td>
+                            <td>${t.items ? t.items.length : 0}</td>
+                            <td>₱${(t.totalAmount || 0).toFixed(2)}</td>
+                            <td>${t.paymentMethod === 'DEBT_PAYMENT' ? 'DEBT PAYMENT' : t.paymentMethod}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -1288,9 +1297,11 @@ async function handleAddDebtSubmit(e) {
         
         // Refresh both tabs - use Promise to ensure both complete
         console.log('Refreshing debts and users...');
-        Promise.all([loadDebts(), loadAdminUsers()]).catch(err => {
-            console.error('Error refreshing data:', err);
-        });
+        Promise.all([
+            loadDebts().catch(err => console.error('Error loading debts:', err)),
+            (currentUser && currentUser.role === 'ADMIN' ? loadAdminUsers() : Promise.resolve())
+                .catch(err => console.error('Error loading users:', err))
+        ]);
     } catch (error) {
         console.error('Add debt error:', error);
         const errorMsg = error.message || error;
@@ -1346,8 +1357,11 @@ async function handlePayDebtSubmit(e) {
         }
         
         try {
-            await loadAdminUsers();
-            console.log('Users loaded');
+            // Only refresh user list if current user is admin
+            if (currentUser && currentUser.role === 'ADMIN') {
+                await loadAdminUsers();
+                console.log('Users loaded');
+            }
         } catch(e) {
             console.error('Error loading users:', e);
         }
@@ -1542,7 +1556,7 @@ async function viewCustomerHistory(customerId) {
                                 <td>${t.transactionNumber}</td>
                                 <td>${t.items.length}</td>
                                 <td>₱${t.totalAmount.toFixed(2)}</td>
-                                <td>${t.paymentMethod}</td>
+                                <td>${t.paymentMethod === 'DEBT_PAYMENT' ? 'DEBT PAYMENT' : t.paymentMethod}</td>
                             </tr>
                         `).join('')}
                     </tbody>
