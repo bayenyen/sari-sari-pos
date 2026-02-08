@@ -40,11 +40,63 @@ function sanitizeErrorMessage(error) {
     }
     
     // If message is too technical, show generic message
-    if (message.length > 100 || message.includes('at ') || message.includes('Error:')) {
-        return 'An error occurred. Please try again.';
+    if (message.length > 100 || message.includes('at ') || message.includes('Success:')) {
+        return 'Sales Successful.';
     }
     
     return message;
+}
+
+// Show error without sanitization (for detailed error messages from API)
+function showErrorMessage(message, type = 'error', duration = 5000) {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.position = 'fixed';
+        container.style.bottom = '20px';
+        container.style.right = '20px';
+        container.style.zIndex = '9999';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '12px';
+        container.style.pointerEvents = 'none';
+        document.body.appendChild(container);
+    }
+
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    
+    let gradient = 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)';
+    if (type === 'warning') {
+        gradient = 'linear-gradient(135deg, #f39c12 0%, #d68910 100%)';
+    }
+    
+    el.style.background = gradient;
+    el.style.color = '#fff';
+    el.style.padding = '16px 24px';
+    el.style.marginTop = '8px';
+    el.style.borderRadius = '12px';
+    el.style.boxShadow = '0 10px 32px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1)';
+    el.style.maxWidth = '420px';
+    el.style.wordWrap = 'break-word';
+    el.style.fontSize = '15px';
+    el.style.fontWeight = '500';
+    el.style.lineHeight = '1.4';
+    el.style.backdropFilter = 'blur(8px)';
+    el.style.border = '1px solid rgba(255,255,255,0.2)';
+    el.style.pointerEvents = 'auto';
+    el.style.animation = 'slideInUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    el.style.letterSpacing = '0.3px';
+    el.textContent = message;
+
+    container.appendChild(el);
+    setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        setTimeout(() => el.remove(), 300);
+    }, duration);
 }
 
 // Show Notification Toast
@@ -55,6 +107,7 @@ function showNotification(message, type = 'info', duration = 3000) {
     
     // Sanitize the message
     const cleanMessage = sanitizeErrorMessage(message);
+
     
     // Add icon based on type
     let icon = '';
@@ -97,11 +150,15 @@ async function checkAuth() {
             currentUser = data.user;
             redirectToRolePage();
         } else {
+            // Invalid or expired token
             localStorage.removeItem('token');
+            currentUser = null;
             showPage('loginPage');
         }
     } catch (error) {
         console.error('Auth check error:', error);
+        localStorage.removeItem('token');
+        currentUser = null;
         showPage('loginPage');
     }
 }
@@ -325,11 +382,18 @@ function showTab(tabName) {
 
 // API Helper
 async function apiCall(endpoint, method = 'GET', body = null) {
+    const token = localStorage.getItem('token');
+    
+    // If no token exists, throw error with specific message
+    if (!token) {
+        throw new Error('UNAUTHORIZED_NO_TOKEN');
+    }
+
     const options = {
         method,
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${token}`
         }
     };
 
@@ -340,8 +404,20 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     const response = await fetch(`${API_URL}${endpoint}`, options);
     
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'API Error');
+        // For 401, throw specific error code so handlers can detect it
+        if (response.status === 401) {
+            throw new Error('UNAUTHORIZED_INVALID_TOKEN');
+        }
+        
+        try {
+            const error = await response.json();
+            throw new Error(error.error || `HTTP ${response.status} Error`);
+        } catch (e) {
+            if (e.message.includes('Unexpected token')) {
+                throw new Error(`HTTP ${response.status} Error`);
+            }
+            throw e;
+        }
     }
 
     return await response.json();
@@ -1090,10 +1166,49 @@ async function handleCheckout(e) {
         updateCartDisplay();
         closeModal('checkoutModal');
         
-        // Reload products to get updated stock
-        await loadProducts();
+        // Reload products to get updated stock (non-blocking)
+        // Don't await - if it fails, don't disrupt the successful purchase
+        loadProducts().catch(err => {
+            console.warn('Failed to refresh products list after checkout:', err);
+        });
     } catch (error) {
-        showToast('Checkout failed. Please try again.', 'error');
+        const errorMsg = error.message || String(error);
+        
+        console.error('=== CHECKOUT ERROR ===');
+        console.error('Error message:', errorMsg);
+        console.error('Full error:', error);
+        console.error('Cart items:', cart.map(i => ({ name: i.name, quantity: i.quantity })));
+        console.error('Transaction data would have been:', {
+            items: cart.map(item => ({ productId: item.productId, quantity: item.quantity })),
+            amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
+            paymentMethod: document.getElementById('paymentMethod').value,
+            customerId: document.getElementById('checkoutCustomer').value,
+        });
+        console.error('===================');
+        
+        // Handle authorization errors
+        if (errorMsg.includes('UNAUTHORIZED')) {
+            localStorage.removeItem('token');
+            currentUser = null;
+            setTimeout(() => {
+                showErrorMessage('Session expired. Please log in again.', 'error', 4000);
+                setTimeout(() => {
+                    showPage('loginPage');
+                }, 500);
+            }, 100);
+        } else if (errorMsg.includes('Credit limit')) {
+            // Show credit limit errors with actual message
+            showErrorMessage(`❌ ${errorMsg}`, 'warning', 6000);
+        } else if (errorMsg.includes('Insufficient stock')) {
+            // Show stock errors
+            showErrorMessage(`⚠️ ${errorMsg}`, 'warning', 5000);
+        } else if (errorMsg.includes('required for') || errorMsg.includes('not found')) {
+            // Show not found errors
+            showErrorMessage(`❌ ${errorMsg}`, 'error', 5000);
+        } else {
+            // Show the actual error message without sanitization for DEBT issues
+            showErrorMessage(`❌ ${errorMsg}`, 'error', 5000);
+        }
     }
 }
 
@@ -1716,8 +1831,18 @@ async function loadCustomers() {
             select.appendChild(option);
         });
     } catch (error) {
-        console.error('Load customers error:', error);
-        showToast('Error loading customers. Please try again.', 'error');
+        const errorMsg = error.message || String(error);
+        
+        // Handle auth errors
+        if (errorMsg.includes('UNAUTHORIZED')) {
+            localStorage.removeItem('token');
+            currentUser = null;
+            showToast('Session expired. Please log in again.', 'error');
+            setTimeout(() => showPage('loginPage'), 1000);
+        } else {
+            console.error('Load customers error:', error);
+            showToast('Error loading customers. Please try again.', 'error');
+        }
     }
 }
 
