@@ -8,6 +8,29 @@ let allProducts = [];
 let allUsers = [];
 let allSalesHistory = [];
 
+// Show Notification Toast
+function showNotification(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('notificationContainer');
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    // Add icon based on type
+    let icon = '';
+    if (type === 'success') icon = '✓';
+    if (type === 'error') icon = '✕';
+    if (type === 'warning') icon = '⚠';
+    if (type === 'info') icon = 'ⓘ';
+    
+    notification.innerHTML = `<span style="font-size: 18px;">${icon}</span><span>${message}</span>`;
+    container.appendChild(notification);
+    
+    // Auto-remove after duration
+    setTimeout(() => {
+        notification.classList.add('hide');
+        setTimeout(() => notification.remove(), 300);
+    }, duration);
+}
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
@@ -44,40 +67,40 @@ async function checkAuth() {
 // Setup Event Listeners
 function setupEventListeners() {
     // Login Form
-    document.getElementById('loginForm').addEventListener('submit', handleLogin);
+    document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
     
     // Product Form
-    document.getElementById('productForm').addEventListener('submit', handleProductSubmit);
+    document.getElementById('productForm')?.addEventListener('submit', handleProductSubmit);
     
     // User Form
-    document.getElementById('userForm').addEventListener('submit', handleUserSubmit);
+    document.getElementById('userForm')?.addEventListener('submit', handleUserSubmit);
     
     // Checkout Form
-    document.getElementById('checkoutForm').addEventListener('submit', handleCheckout);
+    document.getElementById('checkoutForm')?.addEventListener('submit', handleCheckout);
     
     // Restock Form
-    document.getElementById('restockForm').addEventListener('submit', handleRestockSubmit);
+    document.getElementById('restockForm')?.addEventListener('submit', handleRestockSubmit);
     
     // Pay Debt Form
-    document.getElementById('payDebtForm').addEventListener('submit', handlePayDebtSubmit);
+    document.getElementById('payDebtForm')?.addEventListener('submit', handlePayDebtSubmit);
     // Add Debt Form (Cashier)
     document.getElementById('addDebtForm')?.addEventListener('submit', handleAddDebtSubmit);
     
     // Barcode Input
-    document.getElementById('barcodeInput').addEventListener('keypress', handleBarcodeInput);
+    document.getElementById('barcodeInput')?.addEventListener('keypress', handleBarcodeInput);
     
     // Quick Search
-    document.getElementById('quickSearch').addEventListener('input', handleQuickSearch);
+    document.getElementById('quickSearch')?.addEventListener('input', handleQuickSearch);
     
     // Amount Paid Input
-    document.getElementById('amountPaid').addEventListener('input', calculateChange);
+    document.getElementById('amountPaid')?.addEventListener('input', calculateChange);
     
     // Restock cost calculation
-    document.getElementById('restockQuantity').addEventListener('input', calculateRestockCost);
-    document.getElementById('restockCost').addEventListener('input', calculateRestockCost);
+    document.getElementById('restockQuantity')?.addEventListener('input', calculateRestockCost);
+    document.getElementById('restockCost')?.addEventListener('input', calculateRestockCost);
     
     // Customer selection change
-    document.getElementById('checkoutCustomer').addEventListener('change', updateCustomerDebtInfo);
+    document.getElementById('checkoutCustomer')?.addEventListener('change', updateCustomerDebtInfo);
     // Add Debt customer change (modal)
     const addDebtSelect = document.getElementById('addDebtCustomer');
     if (addDebtSelect) addDebtSelect.addEventListener('change', updateAddDebtCustomerInfo);
@@ -125,12 +148,15 @@ async function handleLogin(e) {
                     currentUser = Object.assign({}, data.user, { _id: data.user.id });
                 }
                 errorDiv.textContent = '';
-                redirectToRolePage();
+                showNotification(' Login successfully!', 'success', 2000);
+                setTimeout(() => redirectToRolePage(), 500);
         } else {
             errorDiv.textContent = data.error || 'Login failed';
+            showNotification(data.error || 'Login failed', 'error');
         }
     } catch (error) {
         errorDiv.textContent = 'Connection error. Please try again.';
+        showNotification('Connection error. Please try again.', 'error');
     }
 }
 
